@@ -55,7 +55,7 @@ export class GlyphRendererView extends DataRendererView {
   glyph: GlyphView
   selection_glyph: GlyphView
   nonselection_glyph: GlyphView
-  hover_glyph?: GlyphView
+  hover_glyph: GlyphView
   muted_glyph: GlyphView
   decimated_glyph: GlyphView
 
@@ -115,7 +115,7 @@ export class GlyphRendererView extends DataRendererView {
 
     this.selection_glyph.set_base(this.glyph)
     this.nonselection_glyph.set_base(this.glyph)
-    this.hover_glyph?.set_base(this.glyph)
+    this.hover_glyph.set_base(this.glyph)
     this.muted_glyph.set_base(this.glyph)
     this.decimated_glyph.set_base(this.glyph)
 
@@ -130,7 +130,7 @@ export class GlyphRendererView extends DataRendererView {
     this.glyph.remove()
     this.selection_glyph.remove()
     this.nonselection_glyph.remove()
-    this.hover_glyph?.remove()
+    this.hover_glyph.remove()
     this.muted_glyph.remove()
     this.decimated_glyph.remove()
     super.remove()
@@ -147,8 +147,7 @@ export class GlyphRendererView extends DataRendererView {
     this.connect(this.glyph.model.change, update)
     this.connect(this.selection_glyph.model.change, update)
     this.connect(this.nonselection_glyph.model.change, update)
-    if (this.hover_glyph != null)
-      this.connect(this.hover_glyph.model.change, update)
+    this.connect(this.hover_glyph.model.change, update)
     this.connect(this.muted_glyph.model.change, update)
     this.connect(this.decimated_glyph.model.change, update)
 
@@ -157,8 +156,7 @@ export class GlyphRendererView extends DataRendererView {
     this.connect(this.model.data_source.patching, (indices) => this.update_data(indices))
     this.connect(this.model.data_source.selected.change, render)
     this.connect(this.model.data_source._select, render)
-    if (this.hover_glyph != null)
-      this.connect(this.model.data_source.inspect, render)
+    this.connect(this.model.data_source.inspect, render)
     this.connect(this.model.properties.view.change, update)
     this.connect(this.model.view.properties.indices.change, update)
     this.connect(this.model.view.properties.masked.change, () => this.set_visuals())
@@ -221,10 +219,10 @@ export class GlyphRendererView extends DataRendererView {
 
     this.glyph.set_visuals(source, all_indices)
     this.decimated_glyph.set_visuals(source, all_indices)
-    this.selection_glyph?.set_visuals(source, all_indices)
-    this.nonselection_glyph?.set_visuals(source, all_indices)
-    this.hover_glyph?.set_visuals(source, all_indices)
-    this.muted_glyph?.set_visuals(source, all_indices)
+    this.selection_glyph.set_visuals(source, all_indices)
+    this.nonselection_glyph.set_visuals(source, all_indices)
+    this.hover_glyph.set_visuals(source, all_indices)
+    this.muted_glyph.set_visuals(source, all_indices)
   }
 
   override get has_webgl(): boolean {
@@ -246,7 +244,7 @@ export class GlyphRendererView extends DataRendererView {
     // selected is in full set space
     const {selected} = this.model.data_source
     let selected_full_indices: number[]
-    if (!selected || selected.is_empty())
+    if (selected.is_empty())
       selected_full_indices = []
     else {
       if (this.glyph instanceof LineView && selected.selected_glyph === this.glyph.model)
@@ -258,7 +256,7 @@ export class GlyphRendererView extends DataRendererView {
     // inspected is in full set space
     const {inspected} = this.model.data_source
     const inspected_full_indices = new Set((() => {
-      if (!inspected || inspected.is_empty())
+      if (inspected.is_empty())
         return []
       else {
         if (inspected.selected_glyph)
@@ -287,12 +285,12 @@ export class GlyphRendererView extends DataRendererView {
       nonselection_glyph = this.decimated_glyph
       selection_glyph = this.selection_glyph
     } else {
-      glyph = this.model.muted && this.muted_glyph != null ? this.muted_glyph : this.glyph
+      glyph = this.model.muted ? this.muted_glyph : this.glyph
       nonselection_glyph = this.nonselection_glyph
       selection_glyph = this.selection_glyph
     }
 
-    if (this.hover_glyph != null && inspected_subset_indices.length) {
+    if (inspected_subset_indices.length) {
       // TODO: keep working on Indices instead of converting back and forth
       const set = new Set(indices)
       for (const i of inspected_subset_indices) {
@@ -304,12 +302,12 @@ export class GlyphRendererView extends DataRendererView {
     // Render with no selection
     if (!selected_full_indices.length) {
       if (this.glyph instanceof LineView) {
-        if (this.hover_glyph && inspected_subset_indices.length)
+        if (inspected_subset_indices.length)
           this.hover_glyph.render(ctx, this.model.view.convert_indices_from_subset(inspected_subset_indices))
         else
           glyph.render(ctx, all_indices)
       } else if (this.glyph instanceof PatchView || this.glyph instanceof HAreaView || this.glyph instanceof VAreaView) {
-        if (inspected.selected_glyphs.length == 0 || this.hover_glyph == null) {
+        if (inspected.selected_glyphs.length == 0) {
           glyph.render(ctx, all_indices)
         } else {
           for (const sglyph of inspected.selected_glyphs) {
@@ -319,16 +317,13 @@ export class GlyphRendererView extends DataRendererView {
         }
       } else {
         glyph.render(ctx, indices)
-        if (this.hover_glyph && inspected_subset_indices.length)
+        if (inspected_subset_indices.length)
           this.hover_glyph.render(ctx, inspected_subset_indices)
       }
     // Render with selection
     } else {
       // reset the selection mask
-      const selected_mask: {[key: number]: boolean} = {}
-      for (const i of selected_full_indices) {
-        selected_mask[i] = true
-      }
+      const selected_mask = new Set(selected_full_indices)
 
       // intersect/different selection with render mask
       const selected_subset_indices: number[] = new Array()
@@ -337,14 +332,14 @@ export class GlyphRendererView extends DataRendererView {
       // now, selected is changed to subset space, except for Line glyph
       if (this.glyph instanceof LineView) {
         for (const i of all_indices) {
-          if (selected_mask[i] != null)
+          if (selected_mask.has(i))
             selected_subset_indices.push(i)
           else
             nonselected_subset_indices.push(i)
         }
       } else {
         for (const i of indices) {
-          if (selected_mask[all_indices[i]] != null)
+          if (selected_mask.has(all_indices[i]))
             selected_subset_indices.push(i)
           else
             nonselected_subset_indices.push(i)
@@ -353,7 +348,8 @@ export class GlyphRendererView extends DataRendererView {
 
       nonselection_glyph.render(ctx, nonselected_subset_indices)
       selection_glyph.render(ctx, selected_subset_indices)
-      if (this.hover_glyph != null) {
+
+      if (inspected_subset_indices.length != 0) {
         if (this.glyph instanceof LineView)
           this.hover_glyph.render(ctx, this.model.view.convert_indices_from_subset(inspected_subset_indices))
         else

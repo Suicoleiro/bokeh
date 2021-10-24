@@ -25,7 +25,7 @@ const _createElement = <T extends keyof HTMLElementTagNameMap>(tag: T) => {
           value = value.split(/\s+/)
 
         if (isArray(value)) {
-          for (const cls of value as string[]) {
+          for (const cls of value as (string | null | undefined)[]) {
             if (cls != null)
               element.classList.add(cls)
           }
@@ -99,13 +99,13 @@ export const
   textarea = _createElement("textarea")
 
 export function createSVGElement<T extends keyof SVGElementTagNameMap>(
-    tag: T, attrs: {[key: string]: string | false | null | undefined}, ...children: HTMLChild[]): SVGElementTagNameMap[T] {
+    tag: T, attrs: {[key: string]: string | false | null | undefined} = {}, ...children: HTMLChild[]): SVGElementTagNameMap[T] {
   const element = document.createElementNS("http://www.w3.org/2000/svg", tag)
 
-  for (const [attr, value] of entries(attrs ?? {})) {
-    if (value == null || isBoolean(value) && !value)
+  for (const [attr, value] of entries(attrs)) {
+    if (value == null || !value)
       continue
-    element.setAttribute(attr, value as string)
+    element.setAttribute(attr, value)
   }
 
   function append(child: HTMLItem): void {
